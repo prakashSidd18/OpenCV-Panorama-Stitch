@@ -1,15 +1,16 @@
-#include <stdio.h>
 #include <iostream>
+#include <stdio.h>
+#include <opencv2/core/core.hpp>
+#include <opencv2/features2d/features2d.hpp>
+#include <opencv2/xfeatures2d.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/calib3d/calib3d.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 
-#include <cv.h>
-#include <highgui.h>
-//#include <opencv2/core/core.hpp>
-//#include <opencv2/features2d/features2d.hpp>
-#include <opencv2/nonfree/nonfree.hpp>
-//#include <opencv2/calib3d/calib3d.hpp>
-//#include <opencv2/imgproc/imgproc.hpp>
-
+using namespace std;
 using namespace cv;
+using namespace xfeatures2d;
+
 
 void readme();
 
@@ -45,33 +46,25 @@ int main( int argc, char** argv )
 
 		if ( !gray_image1.data || !gray_image2.data )
 		{
-				std::cout << " --(!) Error reading images " << std::endl;
+				cout << " --(!) Error reading images " << endl;
 				return -1;
 		}
 
 
-		//--Step 1 : Detect the keypoints using SURF Detector
-
+		//--Step 1 : Detect the keypoints using SURF Detector and calculate Descriptors (feature vectors)
 		int minHessian = 400;
+		Mat descriptors_object, descriptors_scene;
+		
+		Ptr<SURF> detector = SURF::create(minHessian);
 
-		SurfFeatureDetector detector( minHessian );
+		vector<KeyPoint> keypoints_object, keypoints_scene;
 
-		std::vector< KeyPoint > keypoints_object, keypoints_scene;
+		detector->detectAndCompute(gray_image1, Mat(), keypoints_object,descriptors_object);
+		detector->detectAndCompute(gray_image2, Mat(), keypoints_scene, descriptors_scene);
 
-		detector.detect( gray_image1, keypoints_object );
-		detector.detect( gray_image2, keypoints_scene );
-
-		//--Step 2 : Calculate Descriptors (feature vectors)
-		SurfDescriptorExtractor extractor;
-
-		Mat descriptors_object,descriptors_scene;
-
-		extractor.compute( gray_image1, keypoints_object, descriptors_object );
-		extractor.compute( gray_image2, keypoints_scene, descriptors_scene );
-
-		//--Step 3 : Matching descriptor vectors using FLANN matcher
+		//--Step 2 : Matching descriptor vectors using FLANN matcher
 		FlannBasedMatcher matcher;
-		std::vector< DMatch > matches;
+		vector< DMatch > matches;
 		matcher.match( descriptors_object, descriptors_scene, matches );
 
 		double max_dist = 0;
@@ -89,7 +82,7 @@ int main( int argc, char** argv )
 		printf("-- Min dist : %f \n", min_dist );
 
 		//--Use only "good" matches (i.e. whose distance is less than 3 X min_dist )
-		std::vector< DMatch > good_matches;
+		vector< DMatch > good_matches;
 
 		for(int i =0 ; i < descriptors_object.rows ; i++)
 		{
@@ -98,8 +91,8 @@ int main( int argc, char** argv )
 						good_matches.push_back( matches[i] );
 				}
 		}
-		std::vector< Point2f > obj;
-		std::vector< Point2f > scene;
+		vector< Point2f > obj;
+		vector< Point2f > scene;
 
 		for( int i = 0; i < good_matches.size(); i++)
 		{
@@ -112,16 +105,16 @@ int main( int argc, char** argv )
 		Mat H = findHomography( obj, scene, CV_RANSAC );
 
 		// Use the homography Matrix to warp the images
-		cv::Mat result;
+		Mat result;
 
-		warpPerspective( image1, result, H, cv::Size( image1.cols+image2.cols, image1.rows) );
-		cv::Mat half(result, cv::Rect(0, 0, image2.cols, image2.rows) );
+		warpPerspective( image1, result, H, Size( image1.cols+image2.cols, image1.rows) );
+		Mat half(result, Rect(0, 0, image2.cols, image2.rows) );
 		image2.copyTo(half);
 
 		/* To remove the black portion after stitching, and confine in a rectangular region*/
 
 		// vector with all non-black point positions
-		std::vector<cv::Point> nonBlackList;
+		vector<Point> nonBlackList;
 		nonBlackList.reserve(result.rows*result.cols);
 
 		// add all non-black points to the vector
@@ -130,18 +123,18 @@ int main( int argc, char** argv )
 				for(int i=0; i<result.cols; ++i)
 				{
 						// if not black: add to the list
-						if(result.at<cv::Vec3b>(j,i) != cv::Vec3b(0,0,0))
+						if(result.at<Vec3b>(j,i) != Vec3b(0,0,0))
 						{
-								nonBlackList.push_back(cv::Point(i,j));
+								nonBlackList.push_back(Point(i,j));
 						}
 				}
 
 		// create bounding rect around those points
-		cv::Rect bb = cv::boundingRect(nonBlackList);
+		Rect bb = boundingRect(nonBlackList);
 
 		// display result and save it
-		cv::imshow("Reult", result(bb));
-		cv::imwrite("./Result.jpg", result(bb));
+		imshow("Reult", result(bb));
+		imwrite("./Result.jpg", result(bb));
 
 		//imshow( "Result", result );
 		//imwrite( "./Result.jpg", result );
@@ -155,5 +148,5 @@ int main( int argc, char** argv )
 /** function readme */
 void readme()
 {
-		std::cout << " Usage: pano < img1 > < img2 > " <<std::endl;
+		cout << " Usage: pano < img1 > < img2 > " <<endl;
 }
