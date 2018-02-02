@@ -1,0 +1,14 @@
+libc6
+libgcc1
+libopencv-calib3d2.3
+libopencv-contrib2.3
+libopencv-core2.3
+libopencv-features2d2.3
+libopencv-flann2.3
+libopencv-highgui2.3
+libopencv-imgproc2.3
+libopencv-legacy2.3
+libopencv-ml2.3
+libopencv-objdetect2.3
+libopencv-video2.3
+libstdc++6
